@@ -1,0 +1,13 @@
+﻿{
+  "mcpServers": {
+    "zoho-inventory": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\globa\\zoho-inventory-mcp-server-by-cdata\\zoho-inventory-mcp-custom\\server.js"
+      ],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

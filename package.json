@@ -1,0 +1,38 @@
+{
+  "name": "zoho-inventory-mcp-server",
+  "version": "1.0.0",
+  "description": "A custom Model Context Protocol (MCP) server for integrating Zoho Inventory with Cursor AI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "cursor-ai",
+    "zoho-inventory",
+    "nodejs",
+    "api-integration",
+    "model-context-protocol",
+    "inventory-management"
+  ],
+  "author": "global-mysterysnailrevolution",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "axios": "^1.7.7",
+    "dotenv": "^17.2.2",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/global-mysterysnailrevolution/zoho-inventory-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/global-mysterysnailrevolution/zoho-inventory-mcp-server/issues"
+  },
+  "homepage": "https://github.com/global-mysterysnailrevolution/zoho-inventory-mcp-server#readme"
+}
