@@ -16,7 +16,21 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Auth middleware
+// Health check endpoint (no auth required)
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    service: 'zoho-inventory-mcp-http',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      tools: '/mcp/list_tools',
+      call_tool: '/mcp/call_tool',
+      oauth_config: '/oauth/configuration'
+    }
+  });
+});
+
+// Auth middleware (after health check)
 app.use((req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -543,20 +557,6 @@ app.post('/oauth/token', (req, res) => {
   res.json({
     error: 'not_implemented', 
     message: 'OAuth flow not implemented - using Bearer token authentication'
-  });
-});
-
-// Health check endpoint (no auth required)
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    service: 'zoho-inventory-mcp-http',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      tools: '/mcp/list_tools',
-      call_tool: '/mcp/call_tool',
-      oauth_config: '/oauth/configuration'
-    }
   });
 });
 
