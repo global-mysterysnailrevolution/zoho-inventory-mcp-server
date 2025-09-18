@@ -47,7 +47,7 @@ Add to your Cursor MCP configuration (`~/.cursor/mcp.json` or project `.cursor/m
 ```json
 {
   "mcpServers": {
-    "zoho-inventory": {
+    "zoho-inventory-custom": {
       "command": "node",
       "args": ["path/to/zoho-inventory-mcp-server/server.js"],
       "env": {

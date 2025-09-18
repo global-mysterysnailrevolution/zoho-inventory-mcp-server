@@ -1,6 +1,6 @@
 ﻿{
   "mcpServers": {
-    "zoho-inventory": {
+    "zoho-inventory-custom": {
       "command": "node",
       "args": [
         "C:\\Users\\globa\\zoho-inventory-mcp-server-by-cdata\\zoho-inventory-mcp-custom\\server.js"

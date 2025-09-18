@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:http": "node http-server.js",
+    "start:stdio": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -21,7 +23,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1",
     "axios": "^1.7.7",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
+    "express": "^5.1.0",
     "zod": "^3.23.8"
   },
   "engines": {
