@@ -7,7 +7,7 @@ const { api } = require('./auth');
 
 // Organization ID from environment
 const ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
-const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || 'your-secure-token-here';
+const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || 'iNUUTVUY%$$@@X#6543x4t3cuyvI$C*%$65454T%VY%V#%Cx4yt3';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -510,12 +510,16 @@ app.post('/mcp/call_tool', async (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check endpoint (no auth required)
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
     service: 'zoho-inventory-mcp-http',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      tools: '/mcp/list_tools',
+      call_tool: '/mcp/call_tool'
+    }
   });
 });
 
