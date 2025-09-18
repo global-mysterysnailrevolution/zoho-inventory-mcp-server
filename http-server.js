@@ -348,121 +348,129 @@ server.registerTool('zoho_create_item', {
   }
 });
 
-// MCP HTTP endpoints for ChatGPT compatibility
+// MCP protocol endpoints for ChatGPT compatibility
 app.get('/mcp/list_tools', async (req, res) => {
   try {
-    // Get available tools from the server
-    const tools = [];
-    
-    // Manually list our tools since we can't access the internal registry
-    tools.push({
-      name: 'zoho_get_tables',
-      description: 'Get list of available Zoho Inventory tables/endpoints',
-      inputSchema: {
-        type: 'object',
-        properties: {},
-        required: []
-      }
-    });
-    
-    tools.push({
-      name: 'zoho_get_items',
-      description: 'Get inventory items from Zoho Inventory',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          limit: {
-            type: 'number',
-            description: 'Number of items to retrieve (default: 10)'
-          }
-        },
-        required: []
-      }
-    });
-    
-    tools.push({
-      name: 'zoho_search_items',
-      description: 'Search for items in Zoho Inventory',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          search_text: {
-            type: 'string',
-            description: 'Search term to find items'
+    // Return tools in MCP format
+    const tools = [
+      {
+        name: 'zoho_get_tables',
+        description: 'Get list of available Zoho Inventory tables/endpoints',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        }
+      },
+      {
+        name: 'zoho_get_items',
+        description: 'Get inventory items from Zoho Inventory',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Number of items to retrieve (default: 10)'
+            }
           },
-          limit: {
-            type: 'number',
-            description: 'Number of results to return (default: 10)'
-          }
-        },
-        required: ['search_text']
-      }
-    });
-    
-    tools.push({
-      name: 'zoho_get_item_details',
-      description: 'Get detailed information about a specific item',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          item_id: {
-            type: 'string',
-            description: 'The ID of the item to get details for'
-          }
-        },
-        required: ['item_id']
-      }
-    });
-    
-    tools.push({
-      name: 'zoho_update_item_price',
-      description: 'Update the price of an inventory item in Zoho',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          item_id: {
-            type: 'string',
-            description: 'The ID of the item to update'
+          required: []
+        }
+      },
+      {
+        name: 'zoho_search_items',
+        description: 'Search for items in Zoho Inventory',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            search_text: {
+              type: 'string',
+              description: 'Search term to find items'
+            },
+            limit: {
+              type: 'number',
+              description: 'Number of results to return (default: 10)'
+            }
           },
-          rate: {
-            type: 'number',
-            description: 'New price/rate for the item'
-          }
-        },
-        required: ['item_id', 'rate']
+          required: ['search_text']
+        }
+      },
+      {
+        name: 'zoho_get_item_details',
+        description: 'Get detailed information about a specific item',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            item_id: {
+              type: 'string',
+              description: 'The ID of the item to get details for'
+            }
+          },
+          required: ['item_id']
+        }
+      },
+      {
+        name: 'zoho_update_item_price',
+        description: 'Update the price of an inventory item in Zoho',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            item_id: {
+              type: 'string',
+              description: 'The ID of the item to update'
+            },
+            rate: {
+              type: 'number',
+              description: 'New price/rate for the item'
+            }
+          },
+          required: ['item_id', 'rate']
+        }
+      },
+      {
+        name: 'zoho_create_item',
+        description: 'Create a new inventory item in Zoho',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Name of the new item'
+            },
+            sku: {
+              type: 'string',
+              description: 'SKU code for the item'
+            },
+            rate: {
+              type: 'number',
+              description: 'Price/rate for the item'
+            },
+            description: {
+              type: 'string',
+              description: 'Description of the item'
+            }
+          },
+          required: ['name', 'rate']
+        }
       }
-    });
-    
-    tools.push({
-      name: 'zoho_create_item',
-      description: 'Create a new inventory item in Zoho',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description: 'Name of the new item'
-          },
-          sku: {
-            type: 'string',
-            description: 'SKU code for the item'
-          },
-          rate: {
-            type: 'number',
-            description: 'Price/rate for the item'
-          },
-          description: {
-            type: 'string',
-            description: 'Description of the item'
-          }
-        },
-        required: ['name', 'rate']
-      }
-    });
+    ];
 
-    res.json({ tools });
+    // Return in MCP format
+    res.json({
+      jsonrpc: '2.0',
+      id: req.query.id || 1,
+      result: {
+        tools: tools
+      }
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.query.id || 1,
+      error: {
+        code: -32603,
+        message: error.message
+      }
+    });
   }
 });
 
@@ -510,6 +518,34 @@ app.post('/mcp/call_tool', async (req, res) => {
   }
 });
 
+// OAuth configuration endpoint (required by ChatGPT)
+app.get('/oauth/configuration', (req, res) => {
+  res.json({
+    authorization_endpoint: `${req.protocol}://${req.get('host')}/oauth/authorize`,
+    token_endpoint: `${req.protocol}://${req.get('host')}/oauth/token`,
+    response_types_supported: ['code'],
+    grant_types_supported: ['authorization_code', 'refresh_token'],
+    scopes_supported: ['zoho_inventory'],
+    token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post']
+  });
+});
+
+// OAuth authorize endpoint (placeholder)
+app.get('/oauth/authorize', (req, res) => {
+  res.json({
+    error: 'not_implemented',
+    message: 'OAuth flow not implemented - using Bearer token authentication'
+  });
+});
+
+// OAuth token endpoint (placeholder)
+app.post('/oauth/token', (req, res) => {
+  res.json({
+    error: 'not_implemented', 
+    message: 'OAuth flow not implemented - using Bearer token authentication'
+  });
+});
+
 // Health check endpoint (no auth required)
 app.get('/health', (req, res) => {
   res.json({ 
@@ -518,7 +554,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: {
       tools: '/mcp/list_tools',
-      call_tool: '/mcp/call_tool'
+      call_tool: '/mcp/call_tool',
+      oauth_config: '/oauth/configuration'
     }
   });
 });
