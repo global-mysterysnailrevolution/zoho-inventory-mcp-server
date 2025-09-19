@@ -109,6 +109,24 @@ app.post('/mcp/:token', async (req, res) => {
   const { id, method, params } = req.body || {};
 
   try {
+    if (method === 'initialize') {
+      // MCP initialization handshake
+      return res.json({
+        jsonrpc: '2.0',
+        id: id,
+        result: {
+          protocolVersion: '2025-03-26',
+          capabilities: {
+            tools: {}
+          },
+          serverInfo: {
+            name: 'zoho-inventory-mcp-http',
+            version: '1.0.0'
+          }
+        }
+      });
+    }
+
     if (method === 'tools/list') {
       const tools = [
         // Required thin wrappers for ChatGPT
