@@ -7,7 +7,7 @@ const { api } = require('./auth');
 
 // Organization ID from environment
 const ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
-const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || 'iNUUTVUY%$$@@X#6543x4t3cuyvI$C*%$65454T%VY%V#%Cx4yt3';
+const MCP_URL_TOKEN = process.env.MCP_URL_TOKEN || 'iNUUTVUY%$$@@X#6543x4t3cuyvI$C*%$65454T%VY%V#%Cx4yt3';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,19 +30,168 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Auth middleware (after health check)
-app.use((req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+// MCP endpoint with URL-based authentication
+app.post('/mcp/:token', async (req, res) => {
+  // Validate URL token
+  if (req.params.token !== MCP_URL_TOKEN) {
+    return res.status(401).json({ 
+      jsonrpc: '2.0', 
+      id: req.body?.id || null, 
+      error: { code: -32001, message: 'Unauthorized' } 
+    });
   }
-  
-  const token = authHeader.substring(7);
-  if (token !== AUTH_TOKEN) {
-    return res.status(401).json({ error: 'Invalid authorization token' });
+
+  const { id, method, params } = req.body || {};
+
+  try {
+    if (method === 'tools/list') {
+      const tools = [
+        // Required thin wrappers for ChatGPT
+        {
+          name: 'search',
+          description: 'Search Zoho Inventory items',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              q: { type: 'string', description: 'Search query' },
+              per_page: { type: 'integer', description: 'Results per page (default: 10)' },
+              page: { type: 'integer', description: 'Page number (default: 1)' }
+            },
+            required: ['q']
+          }
+        },
+        {
+          name: 'fetch',
+          description: 'Get Zoho Inventory item details',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Item ID to fetch' }
+            },
+            required: ['id']
+          }
+        },
+        // Rich Zoho tools
+        {
+          name: 'zoho_get_items',
+          description: 'Get inventory items from Zoho Inventory',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              limit: { type: 'number', description: 'Number of items to retrieve (default: 10)' }
+            },
+            required: []
+          }
+        },
+        {
+          name: 'zoho_search_items',
+          description: 'Search for items in Zoho Inventory',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              search_text: { type: 'string', description: 'Search term to find items' },
+              limit: { type: 'number', description: 'Number of results to return (default: 10)' }
+            },
+            required: ['search_text']
+          }
+        },
+        {
+          name: 'zoho_get_item_details',
+          description: 'Get detailed information about a specific item',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              item_id: { type: 'string', description: 'The ID of the item to get details for' }
+            },
+            required: ['item_id']
+          }
+        },
+        {
+          name: 'zoho_update_item_price',
+          description: 'Update the price of an inventory item in Zoho',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              item_id: { type: 'string', description: 'The ID of the item to update' },
+              rate: { type: 'number', description: 'New price/rate for the item' }
+            },
+            required: ['item_id', 'rate']
+          }
+        },
+        {
+          name: 'zoho_create_item',
+          description: 'Create a new inventory item in Zoho',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Name of the new item' },
+              sku: { type: 'string', description: 'SKU code for the item' },
+              rate: { type: 'number', description: 'Price/rate for the item' },
+              description: { type: 'string', description: 'Description of the item' }
+            },
+            required: ['name', 'rate']
+          }
+        }
+      ];
+
+      return res.json({
+        jsonrpc: '2.0',
+        id: id,
+        result: { tools: tools }
+      });
+    }
+
+    if (method === 'tools/call') {
+      const { name, arguments: args } = params || {};
+      
+      // Handle thin wrapper methods
+      if (name === 'search') {
+        const result = await server.callTool('zoho_search_items', {
+          search_text: args.q,
+          limit: args.per_page || 10
+        });
+        return res.json({ jsonrpc: '2.0', id: id, result: result });
+      }
+      
+      if (name === 'fetch') {
+        const result = await server.callTool('zoho_get_item_details', {
+          item_id: args.id
+        });
+        return res.json({ jsonrpc: '2.0', id: id, result: result });
+      }
+
+      // Handle direct tool calls
+      try {
+        const result = await server.callTool(name, args || {});
+        return res.json({ jsonrpc: '2.0', id: id, result: result });
+      } catch (error) {
+        return res.json({
+          jsonrpc: '2.0',
+          id: id,
+          error: {
+            code: -32603,
+            message: error.message
+          }
+        });
+      }
+    }
+
+    return res.status(400).json({
+      jsonrpc: '2.0',
+      id: id,
+      error: { code: -32601, message: 'Method not found' }
+    });
+
+  } catch (error) {
+    return res.json({
+      jsonrpc: '2.0',
+      id: id,
+      error: {
+        code: -32603,
+        message: error.message
+      }
+    });
   }
-  
-  next();
 });
 
 // Create MCP server instance
@@ -362,7 +511,7 @@ server.registerTool('zoho_create_item', {
   }
 });
 
-// MCP protocol endpoints for ChatGPT compatibility
+// Old endpoints removed - using single /mcp/:token endpoint above
 app.get('/mcp/list_tools', async (req, res) => {
   try {
     // Return tools in MCP format
@@ -569,8 +718,8 @@ app.listen(PORT, () => {
   console.log(`   GET  /mcp/list_tools - List available tools`);
   console.log(`   POST /mcp/call_tool - Execute a tool`);
   console.log(`\n🔗 For ChatGPT integration:`);
-  console.log(`   Server URL: http://localhost:${PORT}`);
-  console.log(`   Auth Header: Authorization: Bearer ${AUTH_TOKEN}`);
+  console.log(`   Server URL: https://web-production-b75f8.up.railway.app/mcp/${MCP_URL_TOKEN}`);
+  console.log(`   Auth: No authorization (URL token)`);
 });
 
 module.exports = app;
