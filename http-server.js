@@ -14,7 +14,58 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
+
+// Comprehensive request logging for ChatGPT connector debugging
+const requestLog = [];
+function logRequest(req, res, startTime) {
+  const ms = Date.now() - startTime;
+  const logEntry = {
+    ts: new Date().toISOString(),
+    method: req.method,
+    path: req.originalUrl,
+    ua: req.get('user-agent'),
+    ip: req.headers['x-forwarded-for'] || req.ip,
+    status: res.statusCode,
+    reqHeaders: {
+      'content-type': req.get('content-type'),
+      'accept': req.get('accept'),
+      'user-agent': req.get('user-agent')?.substring(0, 100) + '...'
+    },
+    bodySize: (req._rawBody || '').length,
+    bodyPreview: (req._rawBody || '').slice(0, 1000),
+    responseTime: ms
+  };
+  
+  // Keep last 20 requests
+  requestLog.push(logEntry);
+  if (requestLog.length > 20) {
+    requestLog.shift();
+  }
+  
+  console.log('🔍 REQUEST LOG:', JSON.stringify(logEntry, null, 2));
+}
+
+// Request logging middleware
+app.use(async (req, res, next) => {
+  const start = Date.now();
+  const chunks = [];
+  
+  // Capture raw body
+  req.on('data', (c) => chunks.push(c));
+  req.on('end', () => { 
+    req._rawBody = Buffer.concat(chunks).toString('utf8'); 
+  });
+  
+  // Capture response status
+  const originalJson = res.json.bind(res);
+  res.json = (payload) => {
+    logRequest(req, res, start);
+    return originalJson(payload);
+  };
+  
+  next();
+});
 
 // Health check endpoint (no auth required)
 app.get('/health', (req, res) => {
@@ -26,6 +77,18 @@ app.get('/health', (req, res) => {
       tools: '/mcp/list_tools',
       call_tool: '/mcp/call_tool',
       oauth_config: '/oauth/configuration'
+    }
+  });
+});
+
+// Debug endpoint to see recent requests
+app.get('/debug', (req, res) => {
+  res.json({
+    recentRequests: requestLog,
+    serverInfo: {
+      uptime: process.uptime(),
+      nodeVersion: process.version,
+      timestamp: new Date().toISOString()
     }
   });
 });
@@ -53,11 +116,28 @@ app.post('/mcp/:token', async (req, res) => {
           inputSchema: {
             type: 'object',
             properties: {
-              q: { type: 'string', description: 'Search query' },
-              per_page: { type: 'integer', description: 'Results per page (default: 10)' },
-              page: { type: 'integer', description: 'Page number (default: 1)' }
+              q: { 
+                type: 'string', 
+                description: 'Search query to find items',
+                minLength: 1,
+                maxLength: 100
+              },
+              per_page: { 
+                type: 'integer', 
+                description: 'Results per page (default: 10)',
+                minimum: 1,
+                maximum: 200,
+                default: 10
+              },
+              page: { 
+                type: 'integer', 
+                description: 'Page number (default: 1)',
+                minimum: 1,
+                default: 1
+              }
             },
-            required: ['q']
+            required: ['q'],
+            additionalProperties: false
           }
         },
         {
@@ -66,9 +146,15 @@ app.post('/mcp/:token', async (req, res) => {
           inputSchema: {
             type: 'object',
             properties: {
-              id: { type: 'string', description: 'Item ID to fetch' }
+              id: { 
+                type: 'string', 
+                description: 'Item ID to fetch',
+                minLength: 1,
+                maxLength: 50
+              }
             },
-            required: ['id']
+            required: ['id'],
+            additionalProperties: false
           }
         },
         // Rich Zoho tools
