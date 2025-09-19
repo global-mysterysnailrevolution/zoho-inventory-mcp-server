@@ -236,6 +236,85 @@ async function handleZohoUpdateStock(itemId, quantity, adjustmentType = 'set') {
   }
 }
 
+async function handleZohoDownloadImage(documentId, itemId = null) {
+  try {
+    // Try different Zoho document endpoints
+    const endpoints = [
+      `/documents/${documentId}`,
+      `/documents/${documentId}/download`,
+      `/files/${documentId}`,
+      `/files/${documentId}/download`,
+      `/attachments/${documentId}`,
+      `/attachments/${documentId}/download`
+    ];
+    
+    let imageData = null;
+    let contentType = 'application/octet-stream';
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying endpoint: ${endpoint}`);
+        const response = await api.get(endpoint, {
+          params: {
+            organization_id: process.env.ZOHO_ORGANIZATION_ID
+          },
+          responseType: 'arraybuffer' // For binary data
+        });
+        
+        if (response.data && response.data.byteLength > 0) {
+          imageData = Buffer.from(response.data).toString('base64');
+          contentType = response.headers['content-type'] || 'image/jpeg';
+          console.log(`Successfully downloaded image from ${endpoint}, size: ${imageData.length} chars`);
+          break;
+        }
+      } catch (endpointError) {
+        console.log(`Endpoint ${endpoint} failed:`, endpointError.response?.status, endpointError.message);
+        continue;
+      }
+    }
+    
+    if (!imageData) {
+      // If direct download fails, try to get document info first
+      try {
+        const docResponse = await api.get(`/documents/${documentId}`, {
+          params: {
+            organization_id: process.env.ZOHO_ORGANIZATION_ID
+          }
+        });
+        
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Document info for ${documentId}:\n\n${JSON.stringify(docResponse.data || {}, null, 2)}\n\nNote: Direct image download failed. Available endpoints tried: ${endpoints.join(', ')}`
+            }
+          ]
+        };
+      } catch (docError) {
+        throw new Error(`Could not download image or get document info. Document ID: ${documentId}. Error: ${docError.message}`);
+      }
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Successfully downloaded image for document ${documentId}${itemId ? ` (item: ${itemId})` : ''}`
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${contentType};base64,${imageData}`,
+            detail: 'high'
+          }
+        }
+      ]
+    };
+  } catch (error) {
+    throw new Error(`Error downloading image: ${error.message}`);
+  }
+}
+
 // MCP endpoint with URL-based authentication
 app.post('/mcp/:token', async (req, res) => {
   // Validate URL token (simple comparison for URL-safe token)
@@ -383,6 +462,18 @@ app.post('/mcp/:token', async (req, res) => {
             },
             required: ['name', 'rate']
           }
+        },
+        {
+          name: 'zoho_download_image',
+          description: 'Download item image from Zoho Inventory using document ID',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              document_id: { type: 'string', description: 'The document ID of the image to download' },
+              item_id: { type: 'string', description: 'The item ID (for context)' }
+            },
+            required: ['document_id']
+          }
         }
       ];
 
@@ -416,6 +507,8 @@ app.post('/mcp/:token', async (req, res) => {
           result = await handleZohoCreateItem(args);
         } else if (name === 'zoho_update_stock') {
           result = await handleZohoUpdateStock(args.item_id, args.quantity, args.adjustment_type || 'set');
+        } else if (name === 'zoho_download_image') {
+          result = await handleZohoDownloadImage(args.document_id, args.item_id);
         } else {
           return res.json({
             jsonrpc: '2.0',
