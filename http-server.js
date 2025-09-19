@@ -32,9 +32,8 @@ app.get('/health', (req, res) => {
 
 // MCP endpoint with URL-based authentication
 app.post('/mcp/:token', async (req, res) => {
-  // Validate URL token (decode URL-encoded token)
-  const decodedToken = decodeURIComponent(req.params.token);
-  if (decodedToken !== MCP_URL_TOKEN) {
+  // Validate URL token (simple comparison for URL-safe token)
+  if (req.params.token !== MCP_URL_TOKEN) {
     return res.status(401).json({ 
       jsonrpc: '2.0', 
       id: req.body?.id || null, 
