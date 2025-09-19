@@ -127,6 +127,11 @@ app.post('/mcp/:token', async (req, res) => {
       });
     }
 
+    if (method === 'notifications/initialized') {
+      // MCP initialization notification - no response needed
+      return res.status(200).json({});
+    }
+
     if (method === 'tools/list') {
       const tools = [
         // Required thin wrappers for ChatGPT
