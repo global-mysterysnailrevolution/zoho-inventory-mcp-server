@@ -14,7 +14,6 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '2mb' }));
 
 // Comprehensive request logging for ChatGPT connector debugging
 const requestLog = [];
@@ -46,12 +45,12 @@ function logRequest(req, res, startTime) {
   console.log('🔍 REQUEST LOG:', JSON.stringify(logEntry, null, 2));
 }
 
-// Request logging middleware
+// Request logging middleware - MUST be before express.json()
 app.use(async (req, res, next) => {
   const start = Date.now();
   const chunks = [];
   
-  // Capture raw body
+  // Capture raw body BEFORE express.json() processes it
   req.on('data', (c) => chunks.push(c));
   req.on('end', () => { 
     req._rawBody = Buffer.concat(chunks).toString('utf8'); 
@@ -66,6 +65,9 @@ app.use(async (req, res, next) => {
   
   next();
 });
+
+// JSON parsing AFTER body capture
+app.use(express.json({ limit: '2mb' }));
 
 // Health check endpoint (no auth required)
 app.get('/health', (req, res) => {
