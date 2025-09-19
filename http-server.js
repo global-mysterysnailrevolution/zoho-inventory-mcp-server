@@ -712,7 +712,7 @@ app.post('/oauth/token', (req, res) => {
 // Start the HTTP server
 app.listen(PORT, () => {
   console.log(`🚀 Zoho Inventory MCP HTTP Server running on port ${PORT} - URL Auth Version`);
-  console.log(`🔐 Authorization required: Bearer ${AUTH_TOKEN}`);
+  console.log(`🔐 Authorization: URL-based token authentication`);
   console.log(`📋 Available endpoints:`);
   console.log(`   GET  /health - Health check`);
   console.log(`   GET  /mcp/list_tools - List available tools`);
