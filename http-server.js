@@ -141,7 +141,7 @@ app.post('/mcp/:token', async (req, res) => {
           inputSchema: {
             type: 'object',
             properties: {
-              q: { 
+              query: { 
                 type: 'string', 
                 description: 'Search query to find items',
                 minLength: 1,
@@ -161,7 +161,7 @@ app.post('/mcp/:token', async (req, res) => {
                 default: 1
               }
             },
-            required: ['q'],
+            required: ['query'],
             additionalProperties: false
           }
         },
@@ -258,7 +258,7 @@ app.post('/mcp/:token', async (req, res) => {
       // Handle thin wrapper methods
       if (name === 'search') {
         const result = await server.callTool('zoho_search_items', {
-          search_text: args.q,
+          search_text: args.query,
           limit: args.per_page || 10
         });
         return res.json({ jsonrpc: '2.0', id: id, result: result });
