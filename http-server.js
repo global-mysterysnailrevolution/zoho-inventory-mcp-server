@@ -95,6 +95,147 @@ app.get('/debug', (req, res) => {
   });
 });
 
+// Zoho API handler functions
+async function handleZohoGetItems(limit = 10) {
+  try {
+    const response = await api.get('/items', {
+      params: {
+        organization_id: process.env.ZOHO_ORGANIZATION_ID,
+        per_page: limit,
+        page: 1
+      }
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Found ${response.data.items?.length || 0} items:\n\n${JSON.stringify(response.data.items || [], null, 2)}`
+        }
+      ]
+    };
+  } catch (error) {
+    throw new Error(`Error fetching items: ${error.message}`);
+  }
+}
+
+async function handleZohoSearch(searchText, limit = 10) {
+  try {
+    const response = await api.get('/items', {
+      params: {
+        organization_id: process.env.ZOHO_ORGANIZATION_ID,
+        search_text: searchText,
+        per_page: limit,
+        page: 1
+      }
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Found ${response.data.items?.length || 0} items matching "${searchText}":\n\n${JSON.stringify(response.data.items || [], null, 2)}`
+        }
+      ]
+    };
+  } catch (error) {
+    throw new Error(`Error searching items: ${error.message}`);
+  }
+}
+
+async function handleZohoGetItemDetails(itemId) {
+  try {
+    const response = await api.get(`/items/${itemId}`, {
+      params: {
+        organization_id: process.env.ZOHO_ORGANIZATION_ID
+      }
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Item details for ${itemId}:\n\n${JSON.stringify(response.data.item || {}, null, 2)}`
+        }
+      ]
+    };
+  } catch (error) {
+    throw new Error(`Error fetching item details: ${error.message}`);
+  }
+}
+
+async function handleZohoUpdateItemPrice(itemId, rate, currency = 'USD') {
+  try {
+    const response = await api.put(`/items/${itemId}`, {
+      rate: parseFloat(rate),
+      currency_code: currency
+    }, {
+      params: {
+        organization_id: process.env.ZOHO_ORGANIZATION_ID
+      }
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Successfully updated item ${itemId} price to ${currency} ${rate}:\n\n${JSON.stringify(response.data.item || {}, null, 2)}`
+        }
+      ]
+    };
+  } catch (error) {
+    throw new Error(`Error updating item price: ${error.message}`);
+  }
+}
+
+async function handleZohoCreateItem(args) {
+  try {
+    const itemData = {
+      name: args.name,
+      rate: parseFloat(args.rate),
+      currency_code: args.currency || 'USD'
+    };
+    
+    if (args.sku) itemData.sku = args.sku;
+    if (args.description) itemData.description = args.description;
+    
+    const response = await api.post('/items', itemData, {
+      params: {
+        organization_id: process.env.ZOHO_ORGANIZATION_ID
+      }
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Successfully created item "${args.name}":\n\n${JSON.stringify(response.data.item || {}, null, 2)}`
+        }
+      ]
+    };
+  } catch (error) {
+    throw new Error(`Error creating item: ${error.message}`);
+  }
+}
+
+async function handleZohoUpdateStock(itemId, quantity, adjustmentType = 'set') {
+  try {
+    const response = await api.post(`/items/${itemId}/adjustments`, {
+      adjustment_type: adjustmentType,
+      quantity: parseFloat(quantity)
+    }, {
+      params: {
+        organization_id: process.env.ZOHO_ORGANIZATION_ID
+      }
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Successfully updated stock for item ${itemId} to ${quantity} (${adjustmentType}):\n\n${JSON.stringify(response.data || {}, null, 2)}`
+        }
+      ]
+    };
+  } catch (error) {
+    throw new Error(`Error updating stock: ${error.message}`);
+  }
+}
+
 // MCP endpoint with URL-based authentication
 app.post('/mcp/:token', async (req, res) => {
   // Validate URL token (simple comparison for URL-safe token)
@@ -255,27 +396,37 @@ app.post('/mcp/:token', async (req, res) => {
     if (method === 'tools/call') {
       const { name, arguments: args } = params || {};
       
-      // Handle thin wrapper methods
-      if (name === 'search') {
-        const result = await server.callTool('zoho_search_items', {
-          search_text: args.query,
-          limit: args.per_page || 10
-        });
-        return res.json({ jsonrpc: '2.0', id: id, result: result });
-      }
-      
-      if (name === 'fetch') {
-        const result = await server.callTool('zoho_get_item_details', {
-          item_id: args.id
-        });
-        return res.json({ jsonrpc: '2.0', id: id, result: result });
-      }
-
-      // Handle direct tool calls
       try {
-        const result = await server.callTool(name, args || {});
+        let result;
+        
+        // Handle thin wrapper methods
+        if (name === 'search') {
+          result = await handleZohoSearch(args.query, args.per_page || 10);
+        } else if (name === 'fetch') {
+          result = await handleZohoGetItemDetails(args.id);
+        } else if (name === 'zoho_get_items') {
+          result = await handleZohoGetItems(args.limit || 10);
+        } else if (name === 'zoho_search_items') {
+          result = await handleZohoSearch(args.search_text, args.limit || 10);
+        } else if (name === 'zoho_get_item_details') {
+          result = await handleZohoGetItemDetails(args.item_id);
+        } else if (name === 'zoho_update_item_price') {
+          result = await handleZohoUpdateItemPrice(args.item_id, args.rate, args.currency || 'USD');
+        } else if (name === 'zoho_create_item') {
+          result = await handleZohoCreateItem(args);
+        } else if (name === 'zoho_update_stock') {
+          result = await handleZohoUpdateStock(args.item_id, args.quantity, args.adjustment_type || 'set');
+        } else {
+          return res.json({
+            jsonrpc: '2.0',
+            id: id,
+            error: { code: -32601, message: `Unknown tool: ${name}` }
+          });
+        }
+        
         return res.json({ jsonrpc: '2.0', id: id, result: result });
       } catch (error) {
+        console.error('Tool call error:', error);
         return res.json({
           jsonrpc: '2.0',
           id: id,
